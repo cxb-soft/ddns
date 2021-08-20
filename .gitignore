@@ -1,2 +1,4 @@
-!go.*
-!index.*
+!*.go
+!*.mod
+!*.sum
+!*.md
