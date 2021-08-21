@@ -128,7 +128,8 @@ func mainProcess(config Args) {
 			if configExist {
 				email := localConfig["cloudflare"].(map[string]interface{})["email"].(string)
 				apikey := localConfig["cloudflare"].(map[string]interface{})["apikey"].(string)
-				cloudflareChangeDns(email, apikey, commandOptions, "Asd")
+				target_domain := localConfig["cloudflare"].(map[string]interface{})["domainList"].([]interface{})
+				cloudflareChangeDns(email, apikey, target_domain, getMyIPV6())
 			}
 		}
 
@@ -175,24 +176,36 @@ func request(email string, apikey string, api string, method string, params stri
 }
 
 // 修改cloudflare解析记录
-func cloudflareChangeDns(email string, apikey string, targets []string, target_ip string) {
+func cloudflareChangeDns(email string, apikey string, targets []interface{}, target_ip string) {
 	domainList := cloudflareDomainList(email, apikey)
 	for i := 0; i < len(targets); i++ {
-		targetDomain := targets[i]
-		result := cloudflareCheckChildDomain(email, apikey, "", domainList)
+		targetDomain := targets[i].(string)
+		result := cloudflareCheckChildDomain(email, apikey, targetDomain, domainList)
 		_, notFound := result["notFound"]
 		if notFound {
 			cloudflareAddDNS(email, apikey, targetDomain, target_ip, "AAAA", result["domainId"].(string), "false")
 		} else {
-			fmt.Println(result["id"])
+			cloudflareChangeDNS(email, apikey, targetDomain, target_ip, "AAAA", result["zone_id"].(string), result["id"].(string), "false")
 		}
 	}
 
 }
 
+// Cloudflare :: 修改解析
+func cloudflareChangeDNS(email string, apikey string, domain string, ip string, domainType string, domainId string, childDomainId string, proxied string) bool {
+	requstUrl := "zones/" + domainId + "/dns_records/" + childDomainId
+	params := fmt.Sprintf("{\"type\":\"%s\",\"name\":\"%s\",\"content\":\"%s\",\"ttl\":0,\"priority\":10,\"proxied\":%s}", domainType, domain, ip, proxied)
+	result := request(email, apikey, requstUrl, "PUT", params)
+	if result["success"] == true {
+		return true
+	} else {
+		return false
+	}
+}
+
 // Cloudflare :: 添加解析
 func cloudflareAddDNS(email string, apikey string, domain string, ip string, domainType string, domainId string, proxied string) bool {
-	params := fmt.Sprintf("{\"type\":\"%s\",\"name\":\"%s\",\"content\":\"%s\",\"ttl\":120,\"priority\":10,\"proxied\":%s}", domainType, domain, ip, proxied)
+	params := fmt.Sprintf("{\"type\":\"%s\",\"name\":\"%s\",\"content\":\"%s\",\"ttl\":0,\"priority\":10,\"proxied\":%s}", domainType, domain, ip, proxied)
 	result := request(email, apikey, "zones/"+domainId+"/dns_records", "POST", params)
 	if result["success"] == true {
 		return true
@@ -208,6 +221,7 @@ func cloudflareCheckChildDomain(email string, apikey string, childDomain string,
 		domainName := domains[i].(map[string]interface{})["name"].(string)
 		if strings.Contains(childDomain, domainName) {
 			domainId := domains[i].(map[string]interface{})["id"].(string)
+			fmt.Println("asdjaj")
 			result := clouodflareGetChildDomain(email, apikey, domainId)
 			for i := 0; i < len(result); i++ {
 				itemDomain := result[i].(map[string]interface{})
