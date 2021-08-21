@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"regexp"
 	"strings"
@@ -25,6 +26,7 @@ func getMyIPV6() string {
 	return ""
 }
 
+// 读取json的函数
 func readJson(jsonPath string) map[string]interface{} {
 	jsonFile, err := os.Open(jsonPath)
 	if err != nil {
@@ -113,13 +115,15 @@ func mainProcess(config Args) {
 			if err != nil {
 				log.Fatal("config.json解析失败")
 			}
-			_, ok1 := configContent["email"]
-			_, ok2 := configContent["apikey"]
+			email, ok1 := configContent["email"].(string)
+			apikey, ok2 := configContent["apikey"].(string)
 			if ok1 && ok2 {
-				fmt.Println("合法")
+				//fmt.Println("合法")
 			} else {
-				fmt.Println("不合法")
+				log.Fatal("传入的Config不合法")
 			}
+			cloudflareDomainList(email, apikey)
+
 		} else {
 			if configExist {
 				email := localConfig["cloudflare"].(map[string]interface{})["email"].(string)
@@ -134,9 +138,101 @@ func mainProcess(config Args) {
 	}
 }
 
+// 列出cloudflare内的所有域名
+func cloudflareDomainList(email string, apikey string) []interface{} {
+	result := request(email, apikey, "zones", "GET", "")["result"].([]interface{})
+	return result
+}
+
+// cloudflare 请求封装
+func request(email string, apikey string, api string, method string, params string) map[string]interface{} {
+	url := "https://api.cloudflare.com/client/v4/" + api
+
+	client := &http.Client{}
+
+	payload := strings.NewReader(params)
+
+	req, err := http.NewRequest(method, url, payload)
+
+	if err != nil {
+
+		return request(email, apikey, api, method, params)
+	}
+	req.Header.Add("X-Auth-Email", email)
+	req.Header.Add("X-Auth-Key", apikey)
+	res, err := client.Do(req)
+	if err != nil {
+		return request(email, apikey, api, method, params)
+	}
+	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return request(email, apikey, api, method, params)
+	}
+	var result map[string]interface{}
+	json.Unmarshal(body, &result)
+	return result
+}
+
+// 修改cloudflare解析记录
 func cloudflareChangeDns(email string, apikey string, targets []string, target_ip string) {
-	fmt.Println(email)
-	fmt.Println(apikey)
+	domainList := cloudflareDomainList(email, apikey)
+	for i := 0; i < len(targets); i++ {
+		targetDomain := targets[i]
+		result := cloudflareCheckChildDomain(email, apikey, "", domainList)
+		_, notFound := result["notFound"]
+		if notFound {
+			cloudflareAddDNS(email, apikey, targetDomain, target_ip, "AAAA", result["domainId"].(string), "false")
+		} else {
+			fmt.Println(result["id"])
+		}
+	}
+
+}
+
+// Cloudflare :: 添加解析
+func cloudflareAddDNS(email string, apikey string, domain string, ip string, domainType string, domainId string, proxied string) bool {
+	params := fmt.Sprintf("{\"type\":\"%s\",\"name\":\"%s\",\"content\":\"%s\",\"ttl\":120,\"priority\":10,\"proxied\":%s}", domainType, domain, ip, proxied)
+	result := request(email, apikey, "zones/"+domainId+"/dns_records", "POST", params)
+	if result["success"] == true {
+		return true
+	} else {
+		return false
+	}
+}
+
+// Cloudflare :: 检查是否有子域名的解析存在
+func cloudflareCheckChildDomain(email string, apikey string, childDomain string, domains []interface{}) map[string]interface{} {
+
+	for i := 0; i < len(domains); i++ {
+		domainName := domains[i].(map[string]interface{})["name"].(string)
+		if strings.Contains(childDomain, domainName) {
+			domainId := domains[i].(map[string]interface{})["id"].(string)
+			result := clouodflareGetChildDomain(email, apikey, domainId)
+			for i := 0; i < len(result); i++ {
+				itemDomain := result[i].(map[string]interface{})
+				childDomainItem := itemDomain["name"]
+				if childDomain == childDomainItem {
+					return itemDomain
+				}
+			}
+			resultdomain := make(map[string]interface{})
+			resultdomain["notFound"] = true
+			resultdomain["domainId"] = domainId
+			return resultdomain
+		}
+	}
+	result := make(map[string]interface{})
+	result["notFound"] = true
+
+	return result
+}
+
+// Cloudflare :: 获取子域名
+func clouodflareGetChildDomain(email string, apikey string, domainId string) []interface{} {
+	requestUrl := "zones/" + domainId + "/dns_records"
+	result := request(email, apikey, requestUrl, "GET", "")["result"].([]interface{})
+	return result
 }
 
 func userChoose() {
