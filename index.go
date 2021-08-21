@@ -166,15 +166,10 @@ func cloudflareDomainList(email string, apikey string) []interface{} {
 // cloudflare 请求封装
 func request(email string, apikey string, api string, method string, params string) map[string]interface{} {
 	url := "https://api.cloudflare.com/client/v4/" + api
-
 	client := &http.Client{}
-
 	payload := strings.NewReader(params)
-
 	req, err := http.NewRequest(method, url, payload)
-
 	if err != nil {
-
 		return request(email, apikey, api, method, params)
 	}
 	req.Header.Add("X-Auth-Email", email)
@@ -272,7 +267,64 @@ func clouodflareGetChildDomain(email string, apikey string, domainId string) []i
 }
 
 func userChoose() {
+	fmt.Print("选择服务:\n1.Cloudflare\n输入序号:")
+	var number string
+	fmt.Scanf("%s", &number)
+	localConfig := readJson("config.json")
+	switch number {
+	case "1":
+		fmt.Println("您已选择Cloudflare")
+		isConfig := checkCloudflareConfig(localConfig)
+		useConfig := "n"
+		if isConfig {
+			fmt.Print("检测到已有配置,是否使用(y/n):")
+			fmt.Scanf("%s", &useConfig)
+		}
+		if useConfig == "y" {
+			email := localConfig["cloudflare"].(map[string]interface{})["email"].(string)
+			apikey := localConfig["cloudflare"].(map[string]interface{})["apikey"].(string)
+			target_domain := localConfig["cloudflare"].(map[string]interface{})["domainList"].([]interface{})
+			cloudflareChangeDns(email, apikey, target_domain, getMyIPV6())
+		} else {
+			var email string
+			var apikey string
+			var domainListStr string
+			fmt.Print("Cloudflare Email:")
+			fmt.Scanf("%s", &email)
+			fmt.Print("Cloudflare API KEY:")
+			fmt.Scanf("%s", &apikey)
+			fmt.Print("域名(如果有多个逗号隔开):")
+			fmt.Scanf("%s", &domainListStr)
+			var domainList []string
+			domainList = strings.Split(domainListStr, ",")
+			target_domain := string2interface(domainList)
+			cloudflareChangeDns(email, apikey, target_domain, getMyIPV6())
+		}
+		break
+	default:
+		fmt.Println("您已选择Cloudflare")
+		isConfig := checkCloudflareConfig(localConfig)
+		useConfig := "n"
+		if isConfig {
+			fmt.Print("检测到已有配置,是否使用(y/n):")
+			fmt.Scanf("%s", &useConfig)
+		}
+		if useConfig == "y" {
+			email := localConfig["cloudflare"].(map[string]interface{})["email"].(string)
+			apikey := localConfig["cloudflare"].(map[string]interface{})["apikey"].(string)
+			target_domain := localConfig["cloudflare"].(map[string]interface{})["domainList"].([]interface{})
+			cloudflareChangeDns(email, apikey, target_domain, getMyIPV6())
+		}
+	}
+}
 
+// string 转 interface
+func string2interface(origin []string) []interface{} {
+	var result []interface{}
+	for i := 0; i < len(origin); i++ {
+		result = append(result, origin[i])
+	}
+	return result
 }
 
 func main() {
