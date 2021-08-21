@@ -42,7 +42,7 @@ func readJson(jsonPath string) map[string]interface{} {
 // 命令行结构体
 type Args struct {
 	ServiceName    string                 // DDNS服务商
-	Config         string                 // 配置
+	Config         map[string]interface{} // 配置
 	commandOptions []string               // 命令行参数
 	resultMap      map[string]interface{} // 命令行参数变成interface
 }
@@ -54,6 +54,7 @@ func commandLineProcess(args []string) {
 		var config Args
 		commands := args[1:]
 		resultMap := make(map[string]interface{})
+		config.Config = make(map[string]interface{})
 		for i := 0; i < (arglen - 1); i++ {
 			spliceCommand := commands[i]
 			switch spliceCommand {
@@ -62,11 +63,28 @@ func commandLineProcess(args []string) {
 				config.ServiceName = serviceName
 				config.commandOptions = commands
 				resultMap["service"] = serviceName
-				fmt.Println(config.ServiceName)
+				fmt.Println("当前服务:" + config.ServiceName)
 				i = i + 1
 				break
-			case "-config":
+			case "-cfemail":
 				commandConfig := commands[i+1]
+				config.Config["cfemail"] = commandConfig
+				resultMap["config"] = commandConfig
+				i = i + 1
+				break
+			case "-cfapikey":
+				commandConfig := commands[i+1]
+				config.Config["cfapikey"] = commandConfig
+				resultMap["config"] = commandConfig
+				i = i + 1
+				break
+			case "-domainList":
+				var commandConfig []interface{}
+				commandConfig1 := strings.Split(commands[i+1], ",")
+				for i := 0; i < len(commandConfig1); i++ {
+					commandConfig = append(commandConfig, commandConfig1[i])
+				}
+				config.Config["domainList"] = commandConfig
 				resultMap["config"] = commandConfig
 				i = i + 1
 				break
@@ -105,24 +123,24 @@ func in(target string, str_array []string) bool {
 func mainProcess(config Args) {
 	switch config.ServiceName {
 	case "cloudflare":
+		structConfig := config.Config
 		localConfig := readJson("config.json")
 		configExist := checkCloudflareConfig(localConfig)
 		commandOptions := config.commandOptions
-		if in("-config", commandOptions) {
-			configContentString := config.resultMap["config"].(string)
-			var configContent map[string]interface{}
-			err := json.Unmarshal([]byte(configContentString), &configContent)
-			if err != nil {
-				log.Fatal("config.json解析失败")
-			}
-			email, ok1 := configContent["email"].(string)
+		if in("-cfemail", commandOptions) && in("-cfapikey", commandOptions) && in("-domainList", commandOptions) {
+			/*email, ok1 := configContent["email"].(string)
 			apikey, ok2 := configContent["apikey"].(string)
 			if ok1 && ok2 {
 				//fmt.Println("合法")
 			} else {
 				log.Fatal("传入的Config不合法")
-			}
-			cloudflareDomainList(email, apikey)
+			}*/
+			email := structConfig["cfemail"].(string)
+			apikey := structConfig["cfapikey"].(string)
+
+			target_domain := structConfig["domainList"].([]interface{})
+
+			cloudflareChangeDns(email, apikey, target_domain, getMyIPV6())
 
 		} else {
 			if configExist {
@@ -132,16 +150,16 @@ func mainProcess(config Args) {
 				cloudflareChangeDns(email, apikey, target_domain, getMyIPV6())
 			}
 		}
-
-		cf_config_string := config.Config
-		var cf_config map[string]interface{}
-		json.Unmarshal([]byte(cf_config_string), &cf_config)
 	}
 }
 
 // 列出cloudflare内的所有域名
 func cloudflareDomainList(email string, apikey string) []interface{} {
-	result := request(email, apikey, "zones", "GET", "")["result"].([]interface{})
+	result1 := request(email, apikey, "zones", "GET", "")["result"]
+	if result1 == nil {
+		log.Fatal("Cloudflare账户配置错误")
+	}
+	result := result1.([]interface{})
 	return result
 }
 
@@ -178,15 +196,20 @@ func request(email string, apikey string, api string, method string, params stri
 // 修改cloudflare解析记录
 func cloudflareChangeDns(email string, apikey string, targets []interface{}, target_ip string) {
 	domainList := cloudflareDomainList(email, apikey)
+
 	for i := 0; i < len(targets); i++ {
 		targetDomain := targets[i].(string)
 		result := cloudflareCheckChildDomain(email, apikey, targetDomain, domainList)
 		_, notFound := result["notFound"]
 		if notFound {
+			if result["domainId"] == nil {
+				log.Fatal("域名获取失败")
+			}
 			cloudflareAddDNS(email, apikey, targetDomain, target_ip, "AAAA", result["domainId"].(string), "false")
 		} else {
 			cloudflareChangeDNS(email, apikey, targetDomain, target_ip, "AAAA", result["zone_id"].(string), result["id"].(string), "false")
 		}
+		fmt.Println("已将 " + targetDomain + " 解析到 " + target_ip)
 	}
 
 }
@@ -221,7 +244,6 @@ func cloudflareCheckChildDomain(email string, apikey string, childDomain string,
 		domainName := domains[i].(map[string]interface{})["name"].(string)
 		if strings.Contains(childDomain, domainName) {
 			domainId := domains[i].(map[string]interface{})["id"].(string)
-			fmt.Println("asdjaj")
 			result := clouodflareGetChildDomain(email, apikey, domainId)
 			for i := 0; i < len(result); i++ {
 				itemDomain := result[i].(map[string]interface{})
