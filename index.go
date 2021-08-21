@@ -59,6 +59,9 @@ func commandLineProcess(args []string) {
 			spliceCommand := commands[i]
 			switch spliceCommand {
 			case "-service":
+				if i == arglen-2 {
+					log.Fatal("命令行参数不正确")
+				}
 				serviceName := commands[i+1]
 				config.ServiceName = serviceName
 				config.commandOptions = commands
@@ -67,18 +70,27 @@ func commandLineProcess(args []string) {
 				i = i + 1
 				break
 			case "-cfemail":
+				if i == arglen-2 {
+					log.Fatal("命令行参数不正确")
+				}
 				commandConfig := commands[i+1]
 				config.Config["cfemail"] = commandConfig
 				resultMap["config"] = commandConfig
 				i = i + 1
 				break
 			case "-cfapikey":
+				if i == arglen-2 {
+					log.Fatal("命令行参数不正确")
+				}
 				commandConfig := commands[i+1]
 				config.Config["cfapikey"] = commandConfig
 				resultMap["config"] = commandConfig
 				i = i + 1
 				break
 			case "-domainList":
+				if i == arglen-2 {
+					log.Fatal("命令行参数不正确")
+				}
 				var commandConfig []interface{}
 				commandConfig1 := strings.Split(commands[i+1], ",")
 				for i := 0; i < len(commandConfig1); i++ {
@@ -100,6 +112,9 @@ func commandLineProcess(args []string) {
 
 //检查cloudflare配置是否存在
 func checkCloudflareConfig(jsonConfig map[string]interface{}) bool {
+	if jsonConfig["cloudflare"] == nil {
+		return false
+	}
 	_, ok1 := jsonConfig["cloudflare"].(map[string]interface{})["email"]
 	_, ok2 := jsonConfig["cloudflare"].(map[string]interface{})["apikey"]
 	if ok1 && ok2 {
@@ -327,10 +342,43 @@ func string2interface(origin []string) []interface{} {
 	return result
 }
 
+// 检查配置文件
+func configCheck() {
+	_, err := os.Stat("./config.json")
+	if err == nil {
+
+	}
+	if os.IsNotExist(err) {
+		newFile, err := os.Create("config.json")
+		if err != nil {
+			log.Fatal(err)
+		}
+		_ = newFile.Close()
+		file, err := os.OpenFile(
+			"config.json",
+			os.O_WRONLY|os.O_TRUNC|os.O_CREATE,
+			0666,
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer file.Close()
+		// 写字节到文件中
+		_, err = file.WriteString("{}")
+
+		// 写文件字符串到文件
+		//
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+}
+
 func main() {
 	fmt.Println("欢迎使用DDNS Tools")
 	ipv6 := getMyIPV6()
 	fmt.Println("您目前的ipv6:" + ipv6)
 	//readJson("config.json")
+	configCheck()
 	commandLineProcess(os.Args)
 }
