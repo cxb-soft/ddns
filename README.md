@@ -1,6 +1,6 @@
 # DDNS
 
-> 一个好用的DDNS工具
+> 一个好用的ipv6 DDNS工具
 
 ## 主要功能
 
@@ -13,6 +13,8 @@
 ### 安装
 
 ​	您可以根据您的操作系统和处理器架构选择已经编译好了的程序
+
+​	[release](https://github.com/cxb-soft/ddns/releases/tag/release)
 
 ### 源代码编译
 
