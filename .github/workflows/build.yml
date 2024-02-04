@@ -34,11 +34,11 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
       with:
-        tag_name: release
+        tag_name: Release
         release_name: Release ${{ github.ref }}
         body: |
-          Changes in this Release
-          - Version 1.0
+          Change ioutil.ReadAll to io.ReadAll
+          - Version 1.1
         draft: false
         prerelease: false
     - name: Upload Release Asset
