@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -143,7 +142,6 @@ func mainProcess(config Args) {
 			apikey := structConfig["cfapikey"].(string)
 			target_domain := structConfig["domainList"].([]interface{})
 			cloudflareChangeDns(email, apikey, target_domain, getMyIPV6())
-
 		} else {
 			if configExist {
 				email := localConfig["cloudflare"].(map[string]interface{})["email"].(string)
@@ -181,7 +179,7 @@ func request(email string, apikey string, api string, method string, params stri
 		return request(email, apikey, api, method, params)
 	}
 	defer res.Body.Close()
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return request(email, apikey, api, method, params)
 	}
