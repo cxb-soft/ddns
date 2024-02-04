@@ -25,7 +25,7 @@ jobs:
     - name: Build linux_arm64
       run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o DDNS_linux_arm64
     - name: Build darwin_arm64
-      run: CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build  -o DDNS_darwin_arm64
+      run: CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o DDNS_darwin_arm64
     - name: Build darwin_amd64
       run: CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o DDNS_darwin_amd64
     - name: Create Release

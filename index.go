@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
@@ -33,7 +34,7 @@ func readJson(jsonPath string) map[string]interface{} {
 		fmt.Println(err)
 	}
 	defer jsonFile.Close()
-	byteValue, _ := ioutil.ReadAll(jsonFile)
+	byteValue, _ := io.ReadAll(jsonFile)
 	var config map[string]interface{}
 	json.Unmarshal([]byte(byteValue), &config)
 	return config
@@ -68,7 +69,6 @@ func commandLineProcess(args []string) {
 				resultMap["service"] = serviceName
 				fmt.Println("当前服务:" + config.ServiceName)
 				i = i + 1
-				break
 			case "-cfemail":
 				if i == arglen-2 {
 					log.Fatal("命令行参数不正确")
@@ -77,7 +77,6 @@ func commandLineProcess(args []string) {
 				config.Config["cfemail"] = commandConfig
 				resultMap["config"] = commandConfig
 				i = i + 1
-				break
 			case "-cfapikey":
 				if i == arglen-2 {
 					log.Fatal("命令行参数不正确")
@@ -86,7 +85,6 @@ func commandLineProcess(args []string) {
 				config.Config["cfapikey"] = commandConfig
 				resultMap["config"] = commandConfig
 				i = i + 1
-				break
 			case "-domainList":
 				if i == arglen-2 {
 					log.Fatal("命令行参数不正确")
@@ -99,8 +97,6 @@ func commandLineProcess(args []string) {
 				config.Config["domainList"] = commandConfig
 				resultMap["config"] = commandConfig
 				i = i + 1
-				break
-
 			}
 		}
 		config.resultMap = resultMap
@@ -110,7 +106,7 @@ func commandLineProcess(args []string) {
 	}
 }
 
-//检查cloudflare配置是否存在
+// 检查cloudflare配置是否存在
 func checkCloudflareConfig(jsonConfig map[string]interface{}) bool {
 	if jsonConfig["cloudflare"] == nil {
 		return false
@@ -310,12 +306,10 @@ func userChoose() {
 			fmt.Scanf("%s", &apikey)
 			fmt.Print("域名(如果有多个逗号隔开):")
 			fmt.Scanf("%s", &domainListStr)
-			var domainList []string
-			domainList = strings.Split(domainListStr, ",")
+			domainList := strings.Split(domainListStr, ",")
 			target_domain := string2interface(domainList)
 			cloudflareChangeDns(email, apikey, target_domain, getMyIPV6())
 		}
-		break
 	default:
 		fmt.Println("您已选择Cloudflare")
 		isConfig := checkCloudflareConfig(localConfig)
@@ -345,9 +339,6 @@ func string2interface(origin []string) []interface{} {
 // 检查配置文件
 func configCheck() {
 	_, err := os.Stat("./config.json")
-	if err == nil {
-
-	}
 	if os.IsNotExist(err) {
 		newFile, err := os.Create("config.json")
 		if err != nil {
