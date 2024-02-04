@@ -139,18 +139,9 @@ func mainProcess(config Args) {
 		configExist := checkCloudflareConfig(localConfig)
 		commandOptions := config.commandOptions
 		if in("-cfemail", commandOptions) && in("-cfapikey", commandOptions) && in("-domainList", commandOptions) {
-			/*email, ok1 := configContent["email"].(string)
-			apikey, ok2 := configContent["apikey"].(string)
-			if ok1 && ok2 {
-				//fmt.Println("合法")
-			} else {
-				log.Fatal("传入的Config不合法")
-			}*/
 			email := structConfig["cfemail"].(string)
 			apikey := structConfig["cfapikey"].(string)
-
 			target_domain := structConfig["domainList"].([]interface{})
-
 			cloudflareChangeDns(email, apikey, target_domain, getMyIPV6())
 
 		} else {
